@@ -707,10 +707,16 @@ public class GameState implements Serializable, Copyable<GameState> {
         delayed.removeStartOfNewTurn(game);
     }
 
+    /**
+     * Registers the effect as-is, without copying or initializing it. You probably want {@link Game#addEffect}.
+     */
     public void addEffect(ContinuousEffect effect, Ability source) {
         addEffect(effect, null, source);
     }
 
+    /**
+     * Registers the effect as-is, without copying or initializing it. You probably want {@link Game#addEffect}.
+     */
     public void addEffect(ContinuousEffect effect, UUID sourceId, Ability source) {
         if (sourceId == null) {
             effects.addEffect(effect, source);
@@ -1168,6 +1174,19 @@ public class GameState implements Serializable, Copyable<GameState> {
         if (zone != null && zone.match(Zone.EXILED)
                 && card.getId().equals(card.getMainCard().getId())) {
             getExile().add(card);
+        }
+
+        // add card specific abilities to game
+        for (Ability ability : card.getInitAbilities()) {
+            addAbility(ability, null, card);
+        }
+    }
+
+    private void addCardToExile(Card card, String exileZoneName) {
+        setZone(card.getId(), Zone.EXILED);
+
+        if (card.getId().equals(card.getMainCard().getId())) {
+            getExile().createZone(card.getId(), exileZoneName).add(card);
         }
 
         // add card specific abilities to game
@@ -1634,17 +1653,13 @@ public class GameState implements Serializable, Copyable<GameState> {
      * Registers a standalone copy built from one part of a multipart card.
      * The supplied copy already contains the characteristics that become normal.
      */
-    public Card addCardPartCopyToZone(Card partToCopy, Card copiedCard, UUID newController,
-                                      Zone destinationZone) {
-        if (destinationZone == null) {
-            throw new IllegalArgumentException("Destination zone cannot be null");
-        }
+    public Card addCardPartCopyToExileZone(Card owningCard, Card partToCopy, Card copiedCard, UUID newController) {
         if (!copiedCard.getId().equals(copiedCard.getMainCard().getId())) {
             throw new IllegalArgumentException("The promoted copy must be a standalone card");
         }
         prepareCardForCopy(partToCopy, copiedCard, newController);
         copiedCards.put(copiedCard.getId(), copiedCard);
-        addCard(copiedCard, destinationZone);
+        addCardToExile(copiedCard, "Prepared by " + owningCard.getIdName());
         this.setValue(COPIED_CARD_KEY + copiedCard.getId(), copiedCard.copy());
         return copiedCard;
     }
